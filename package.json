@@ -42,6 +42,21 @@
           "type": "number",
           "default": 40,
           "description": "Maximum length of the output decoration text."
+        },
+        "void.decoration.color": {
+          "type": "string",
+          "default": "editorCodeLens.foreground",
+          "description": "Color of the inline decoration. Can be a hex code or a VS Code ThemeColor ID."
+        },
+        "void.decoration.opacity": {
+          "type": "string",
+          "default": "1",
+          "description": "CSS opacity of the inline decoration."
+        },
+        "void.decoration.fontStyle": {
+          "type": "string",
+          "default": "italic",
+          "description": "CSS font-style of the inline decoration (e.g., 'italic', 'normal')."
         }
       }
     }

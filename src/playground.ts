@@ -2,30 +2,29 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Subject, Observable, timer } from 'rxjs';
-import {  takeUntil, switchMap, debounceTime } from 'rxjs/operators';
+import {  takeUntil, switchMap, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ConfigService } from './utils/config-service';
 import { bundleFile, runFile } from './utils/playground';
 import { truncateText } from './utils/truncate-text';
 import { LOG_WRAPPER_CODE, LOG_WRAPPER_LINES } from './constants/playground';
-
-const DECORATION_STYLES = {
-    color: '#888888',
-    fontStyle: 'italic'
-};
+import { Config } from './interfaces/config';
 
 export class Playground {
     private readonly _outputChannel = vscode.window.createOutputChannel("Void");
-    private readonly _decorationType = vscode.window.createTextEditorDecorationType({
-        after: {
-            margin: '0 0 0 1em',
-            ...DECORATION_STYLES
-        }
-    });
+    private _decorationType!: vscode.TextEditorDecorationType;
     private readonly _configService = new ConfigService();
     private readonly _textDocument$ = new Subject<vscode.TextDocument>();
     private readonly _destroy$ = new Subject<void>();
 
     constructor() {
+        this._updateDecorationType(this._configService.currentConfig);
+
+        this._configService.config$
+            .pipe(
+                distinctUntilChanged(),
+                takeUntil(this._destroy$))
+            .subscribe(config => this._updateDecorationType(config));
+
         this._textDocument$.pipe(
             switchMap(doc => new Observable<vscode.TextDocument>(observer => {
                 // Emit initial value
@@ -44,6 +43,26 @@ export class Playground {
             debounceTime(this._configService.currentConfig.debounce),
             takeUntil(this._destroy$)
         ).subscribe(doc => this._run(doc));
+    }
+
+    private _updateDecorationType(config: Config) {
+        if (this._decorationType) {
+            this._decorationType.dispose();
+        }
+
+        const { color, opacity, fontStyle } = config.decoration;
+
+        const decorationColor = color.startsWith('#') || color.startsWith('rgb')
+            ? color
+            : new vscode.ThemeColor(color);
+
+        this._decorationType = vscode.window.createTextEditorDecorationType({
+            opacity,
+            after: {
+                color: decorationColor,
+                fontStyle
+            }
+        });
     }
 
     private _run = async (textDocument: vscode.TextDocument) => {
@@ -88,10 +107,6 @@ export class Playground {
                 if (secondPipeIndex === -1) continue;
 
                 const stackTracePart = line.substring(9, secondPipeIndex);
-                // The rest is the logged content, might be separated by space from the pipe? 
-                // console.log("a", "b") -> "a b"
-                // _originalLog("prefix", "a", "b") -> "prefix a b"
-                // So there is a space after the second pipe usually.
                 let argsPart = line.substring(secondPipeIndex + 1);
                 if (argsPart.startsWith(' ')) argsPart = argsPart.substring(1);
 
@@ -108,10 +123,6 @@ export class Playground {
                         lineMap.get(editorLine)?.push(argsPart);
                     }
                 }
-            } else {
-                 // Maybe show runtime errors in output channel?
-                 // But logs also go to stdout which we capture.
-                 // We could show clean logs (without valid prefix) in output channel.
             }
         }
 
@@ -122,15 +133,13 @@ export class Playground {
              const truncatedText = truncateText(fullText, truncateLength);
              const hoverMessage = new vscode.MarkdownString();
              hoverMessage.appendCodeblock(fullText, 'typescript');
-
+             
              decorations.push({
                  range: new vscode.Range(line, 0, line, 1000),
                  hoverMessage: hoverMessage,
                  renderOptions: {
                      after: {
                          contentText: `  => ${truncatedText}`,
-                         margin: '0 0 0 2em',
-                         ...DECORATION_STYLES
                      }
                  }
              });
@@ -144,7 +153,9 @@ export class Playground {
     }
     
     public dispose = () => {
-        this._decorationType.dispose();
+        if (this._decorationType) {
+            this._decorationType.dispose();
+        }
         this._outputChannel.dispose();
         this._configService.dispose();
         
