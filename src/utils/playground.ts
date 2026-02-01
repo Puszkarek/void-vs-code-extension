@@ -1,12 +1,12 @@
 import * as cp from 'child_process';
+import * as esbuild from 'esbuild';
 
 export const bundleFile = async (
     entryPoint: string, 
     outfile: string, 
     tsconfigPath?: string
 ): Promise<void> => {
-    const esbuild = require('esbuild');
-    const buildOptions: any = {
+    const buildOptions: esbuild.BuildOptions = {
         entryPoints: [entryPoint],
         bundle: true,
         platform: 'node',
