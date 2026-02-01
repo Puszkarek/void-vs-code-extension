@@ -11,10 +11,10 @@ export const activate = (context: vscode.ExtensionContext) => {
 
     context.subscriptions.push(runInCurrentCommand);
     context.subscriptions.push(createNewCommand);
-}
+};
 
 export const deactivate = () => {
     console.info('Void: Disposing playground...');
     disposePlayground();
     console.info('Void: Disposed playground');
-}
+};

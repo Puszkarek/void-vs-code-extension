@@ -14,7 +14,7 @@
     "Other"
   ],
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -63,9 +63,11 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm run check-types && npm run lint && node esbuild.js --watch",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test"
@@ -79,11 +81,11 @@
     "esbuild": "^0.25.0",
     "eslint": "^9.39.2",
     "prettier": "3.8.1",
+    "rxjs": "^7.8.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.52.0"
   },
   "dependencies": {
-    "esbuild": "^0.25.0",
-    "rxjs": "^7.8.2"
+    "esbuild": "^0.25.0"
   }
 }

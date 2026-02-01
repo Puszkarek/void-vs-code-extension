@@ -67,10 +67,10 @@ export class Playground {
 
     private _run = async (textDocument: vscode.TextDocument) => {
         const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document !== textDocument) return;
+        if (!editor || editor.document !== textDocument) {return;}
 
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) return;
+        if (!workspaceFolders) {return;}
         const rootPath = workspaceFolders[0].uri.fsPath;
 
         const { tsconfigPath } = this._configService.currentConfig;
@@ -93,7 +93,7 @@ export class Playground {
         } catch (err: any) {
             this._outputChannel.appendLine(`Error: ${err.message}`);
         }
-    }
+    };
     private _parseOutput = (output: string, editor: vscode.TextEditor, lineOffset: number) => {
         const decorations: vscode.DecorationOptions[] = [];
         const lineMap = parseLogOutput(output, lineOffset);
@@ -119,11 +119,11 @@ export class Playground {
         });
 
         editor.setDecorations(this._decorationType, decorations);
-    }
+    };
 
     public attach = async (textDocument: vscode.TextDocument) => {
         this._textDocument$.next(textDocument);
-    }
+    };
     
     public dispose = () => {
         if (this._decorationType) {
@@ -134,5 +134,5 @@ export class Playground {
         
         this._destroy$.next();
         this._destroy$.complete();
-    }
+    };
 }

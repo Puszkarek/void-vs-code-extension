@@ -22,11 +22,11 @@ export const parseLogOutput = (output: string, lineOffset: number): Map<number, 
             currentLine = null;
 
             const secondPipeIndex = line.indexOf('|', 9);
-            if (secondPipeIndex === -1) continue;
+            if (secondPipeIndex === -1) {continue;}
 
             const stackTracePart = line.substring(9, secondPipeIndex);
             let argsPart = line.substring(secondPipeIndex + 1);
-            if (argsPart.startsWith(' ')) argsPart = argsPart.substring(1);
+            if (argsPart.startsWith(' ')) {argsPart = argsPart.substring(1);}
 
             const match = /\.void\.ts:(\d+)/.exec(stackTracePart);
             if (match) {

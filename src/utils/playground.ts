@@ -21,7 +21,7 @@ export const bundleFile = async (
     }
 
     await esbuild.build(buildOptions);
-}
+};
 
 export const runFile = (filePath: string, cwd: string): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -41,4 +41,4 @@ export const runFile = (filePath: string, cwd: string): Promise<string> => {
             reject(err);
         });
     });
-}
+};
