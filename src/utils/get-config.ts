@@ -6,5 +6,6 @@ export const getConfig = (): Config => {
   return {
     debounce: config.get<number>("debounce") ?? 300,
     tsconfigPath: config.get<string>("tsconfigPath") ?? null,
+    truncateLength: config.get<number>("truncateLength") ?? 40,
   };
 };

@@ -37,6 +37,11 @@
           "type": "string",
           "default": null,
           "description": "Path to tsconfig.json. If null, tries to find it automatically."
+        },
+        "void.truncateLength": {
+          "type": "number",
+          "default": 40,
+          "description": "Maximum length of the output decoration text."
         }
       }
     }

@@ -1,8 +1,15 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as cp from 'child_process';
 import { getConfig } from './utils/get-config';
+import { bundleFile, runFile } from './utils/playground-utils';
+import { truncateText } from './utils/text-utils';
+import { LOG_WRAPPER_CODE, LOG_WRAPPER_LINES } from './constants/playground-constants';
+
+const DECORATION_STYLES = {
+    color: '#888888',
+    fontStyle: 'italic'
+};
 
 export class Playground {
     private debounceTimer: NodeJS.Timeout | undefined;
@@ -14,11 +21,11 @@ export class Playground {
         this.decorationType = vscode.window.createTextEditorDecorationType({
             after: {
                 margin: '0 0 0 1em',
-                color: '#888888',
-                fontStyle: 'italic'
+                ...DECORATION_STYLES
             }
         });
     }
+
 
     public async attach(doc: vscode.TextDocument) {
         this.triggerRun(doc);
@@ -56,54 +63,16 @@ export class Playground {
         const tempJsFile = path.join(rootPath, '.void.js');
         const originalCode = doc.getText();
 
-        const wrapper = `
-const _originalLog = console.log;
-console.log = (...args) => {
-    try {
-        throw new Error();
-    } catch (e) {
-        const stackLines = e.stack.split('\\n');
-        // Index 2 is the caller
-        const callerLine = stackLines[2] || '';
-        // format: __VOID__|caller_stack|output...
-        _originalLog('__VOID__|' + callerLine + '|', ...args);
-    }
-};
-`;
-        const wrapperLines = wrapper.split('\n').length - 1;
-        const codeToRun = wrapper + originalCode;
+        const codeToRun = LOG_WRAPPER_CODE + originalCode;
 
         fs.writeFileSync(tempTsFile, codeToRun);
 
         try {
-            const esbuild = require('esbuild');
-            const buildOptions: any = {
-                entryPoints: [tempTsFile],
-                bundle: true,
-                platform: 'node',
-                packages: 'external',
-                outfile: tempJsFile,
-                sourcemap: 'inline',
-                logLevel: 'silent'
-            };
+            await bundleFile(tempTsFile, tempJsFile, tsconfigPath ?? undefined);
 
-            if (tsconfigPath) {
-                 buildOptions.tsconfig = tsconfigPath;
-            }
-
-            await esbuild.build(buildOptions);
-
-            const child = cp.spawn('node', ['--enable-source-maps', tempJsFile], {
-                cwd: rootPath
-            });
-
-            let output = '';
-            child.stdout.on('data', d => output += d.toString());
-            child.stderr.on('data', d => output += d.toString());
-
-            child.on('close', () => {
-                this.parseOutput(output, editor, wrapperLines);
-            });
+            const output = await runFile(tempJsFile, rootPath);
+            
+            this.parseOutput(output, editor, LOG_WRAPPER_LINES);
 
         } catch (err: any) {
             this.outputChannel.appendLine(`Error: ${err.message}`);
@@ -149,15 +118,22 @@ console.log = (...args) => {
             }
         }
 
+        const { truncateLength } = getConfig();
+
         lineMap.forEach((texts, line) => {
+             const fullText = texts.join(', ');
+             const truncatedText = truncateText(fullText, truncateLength);
+             const hoverMessage = new vscode.MarkdownString();
+             hoverMessage.appendCodeblock(fullText, 'typescript');
+
              decorations.push({
                  range: new vscode.Range(line, 0, line, 1000),
+                 hoverMessage: hoverMessage,
                  renderOptions: {
                      after: {
-                         contentText: `  => ${texts.join(', ')}`,
-                         color: '#888888',
-                         fontStyle: 'italic',
-                         margin: '0 0 0 2em'
+                         contentText: `  => ${truncatedText}`,
+                         margin: '0 0 0 2em',
+                         ...DECORATION_STYLES
                      }
                  }
              });
