@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Config } from "../interfaces/config.interface";
+import { Config } from "../interfaces/config";
 
 export const getConfig = (): Config => {
   const config = vscode.workspace.getConfiguration("void");

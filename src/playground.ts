@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { getConfig } from './utils/get-config';
 import { bundleFile, runFile } from './utils/playground';
 import { truncateText } from './utils/truncate-text';
-import { LOG_WRAPPER_CODE, LOG_WRAPPER_LINES } from './constants/playground-constants';
+import { LOG_WRAPPER_CODE, LOG_WRAPPER_LINES } from './constants/playground';
 
 const DECORATION_STYLES = {
     color: '#888888',
