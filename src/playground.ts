@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getConfig } from './utils/get-config';
+import { Subject, Observable, timer } from 'rxjs';
+import {  takeUntil, switchMap, debounceTime } from 'rxjs/operators';
+import { ConfigService } from './utils/config-service';
 import { bundleFile, runFile } from './utils/playground';
 import { truncateText } from './utils/truncate-text';
 import { LOG_WRAPPER_CODE, LOG_WRAPPER_LINES } from './constants/playground';
@@ -12,45 +14,51 @@ const DECORATION_STYLES = {
 };
 
 export class Playground {
-    private _debounceTimer: NodeJS.Timeout | undefined;
-    private _outputChannel: vscode.OutputChannel;
-    private _decorationType: vscode.TextEditorDecorationType;
+    private readonly _outputChannel = vscode.window.createOutputChannel("Void");
+    private readonly _decorationType = vscode.window.createTextEditorDecorationType({
+        after: {
+            margin: '0 0 0 1em',
+            ...DECORATION_STYLES
+        }
+    });
+    private readonly _configService = new ConfigService();
+    private readonly _textDocument$ = new Subject<vscode.TextDocument>();
+    private readonly _destroy$ = new Subject<void>();
 
     constructor() {
-        this._outputChannel = vscode.window.createOutputChannel("Void");
-        this._decorationType = vscode.window.createTextEditorDecorationType({
-            after: {
-                margin: '0 0 0 1em',
-                ...DECORATION_STYLES
-            }
-        });
+        this._textDocument$.pipe(
+            switchMap(doc => new Observable<vscode.TextDocument>(observer => {
+                // Emit initial value
+                observer.next(doc);
+                
+                const changeListener = vscode.workspace.onDidChangeTextDocument(e => {
+                    if (e.document === doc) {
+                        observer.next(doc);
+                    }
+                });
+
+                return () => {
+                    changeListener.dispose();
+                };
+            })),
+            debounceTime(this._configService.currentConfig.debounce),
+            takeUntil(this._destroy$)
+        ).subscribe(doc => this._run(doc));
     }
 
-    private _triggerRun = (doc: vscode.TextDocument) => {
-        const { debounce } = getConfig();
-
-        if (this._debounceTimer) {
-            clearTimeout(this._debounceTimer);
-        }
-
-        this._debounceTimer = setTimeout(() => {
-            this._run(doc);
-        }, debounce);
-    }
-
-    private _run = async (doc: vscode.TextDocument) => {
+    private _run = async (textDocument: vscode.TextDocument) => {
         const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document !== doc) return;
+        if (!editor || editor.document !== textDocument) return;
 
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) return;
         const rootPath = workspaceFolders[0].uri.fsPath;
 
-        const { tsconfigPath } = getConfig();
+        const { tsconfigPath } = this._configService.currentConfig;
         
         const tempTsFile = path.join(rootPath, '.void.ts');
         const tempJsFile = path.join(rootPath, '.void.js');
-        const originalCode = doc.getText();
+        const originalCode = textDocument.getText();
 
         const codeToRun = LOG_WRAPPER_CODE + originalCode;
 
@@ -107,7 +115,7 @@ export class Playground {
             }
         }
 
-        const { truncateLength } = getConfig();
+        const { truncateLength } = this._configService.currentConfig;
 
         lineMap.forEach((texts, line) => {
              const fullText = texts.join(', ');
@@ -131,19 +139,16 @@ export class Playground {
         editor.setDecorations(this._decorationType, decorations);
     }
 
-        public attach = async (doc: vscode.TextDocument) => {
-        this._triggerRun(doc);
-
-        vscode.workspace.onDidChangeTextDocument(e => {
-            if (e.document === doc) {
-                this._triggerRun(doc);
-            }
-        });
+    public attach = async (textDocument: vscode.TextDocument) => {
+        this._textDocument$.next(textDocument);
     }
     
     public dispose = () => {
         this._decorationType.dispose();
         this._outputChannel.dispose();
-        if (this._debounceTimer) clearTimeout(this._debounceTimer);
+        this._configService.dispose();
+        
+        this._destroy$.next();
+        this._destroy$.complete();
     }
 }
