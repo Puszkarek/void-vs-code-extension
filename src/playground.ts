@@ -100,9 +100,24 @@ export class Playground {
         const decorations: vscode.DecorationOptions[] = [];
         const lineMap = new Map<number, string[]>();
 
+        let currentLine: number | null = null;
+        let currentOutput: string[] = [];
+
         for (const line of lines) {
             // Check for prefix
             if (line.startsWith('__VOID__|')) {
+                // If we have accumulated output for a previous line, save it
+                if (currentLine !== null && currentOutput.length > 0) {
+                    if (!lineMap.has(currentLine)) {
+                        lineMap.set(currentLine, []);
+                    }
+                    lineMap.get(currentLine)?.push(currentOutput.join('\n'));
+                }
+
+                // Start a new entry
+                currentOutput = [];
+                currentLine = null;
+
                 const secondPipeIndex = line.indexOf('|', 9);
                 if (secondPipeIndex === -1) continue;
 
@@ -117,32 +132,49 @@ export class Playground {
                     const editorLine = lineNo - 1;
 
                     if (editorLine >= 0) {
-                        if (!lineMap.has(editorLine)) {
-                            lineMap.set(editorLine, []);
-                        }
-                        lineMap.get(editorLine)?.push(argsPart);
+                        currentLine = editorLine;
+                        currentOutput.push(argsPart);
                     }
                 }
+            } else if (currentLine !== null) {
+                // Continuation of the previous log
+                currentOutput.push(line);
             }
+        }
+
+        // Push successfully processed last iteration
+        if (currentLine !== null && currentOutput.length > 0) {
+            if (!lineMap.has(currentLine)) {
+                lineMap.set(currentLine, []);
+            }
+            lineMap.get(currentLine)?.push(currentOutput.join('\n'));
         }
 
         const { truncateLength } = this._configService.currentConfig;
 
         lineMap.forEach((texts, line) => {
-             const fullText = texts.join(', ');
-             const truncatedText = truncateText(fullText, truncateLength);
-             const hoverMessage = new vscode.MarkdownString();
-             hoverMessage.appendCodeblock(fullText, 'typescript');
-             
-             decorations.push({
-                 range: new vscode.Range(line, 0, line, 1000),
-                 hoverMessage: hoverMessage,
-                 renderOptions: {
-                     after: {
-                         contentText: `  => ${truncatedText}`,
-                     }
-                 }
-             });
+            const fullText = texts.join('\n');
+
+            // For inline representation: replace newlines with spaces and condense spaces
+            const inlineTexts = texts.map(text =>
+                text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+            );
+
+            const combinedInline = inlineTexts.join(', ');
+            const truncatedText = truncateText(combinedInline, truncateLength);
+
+            const hoverMessage = new vscode.MarkdownString();
+            hoverMessage.appendCodeblock(fullText, 'typescript');
+
+            decorations.push({
+                range: new vscode.Range(line, 0, line, 1000),
+                hoverMessage: hoverMessage,
+                renderOptions: {
+                    after: {
+                        contentText: `  => ${truncatedText}`,
+                    }
+                }
+            });
         });
 
         editor.setDecorations(this._decorationType, decorations);
