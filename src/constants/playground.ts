@@ -1,4 +1,3 @@
-
 export const LOG_WRAPPER_CODE = `
 const _originalLog = console.log;
 console.log = (...args) => {
@@ -14,4 +13,4 @@ console.log = (...args) => {
 };
 `;
 
-export const LOG_WRAPPER_LINES = LOG_WRAPPER_CODE.split('\n').length - 1;
+export const LOG_WRAPPER_LINES = LOG_WRAPPER_CODE.split("\n").length - 1;
