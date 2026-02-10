@@ -5,10 +5,10 @@
   "repository": "https://github.com/Puszkarek/vanta-vs-code-extension",
   "publisher": "Puszkarek",
   "icon": "assets/icon.png",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.104.0"
+    "vscode": "^1.93.0"
   },
   "categories": [
     "Other"
